@@ -51,8 +51,88 @@ const SPECIAL_MAP = {
 
 const VIRAMA = '\u094D'; // ्
 
-// Common English words & romanized presets dictionary
+// Common English words, single phonemes & romanized presets dictionary
 const COMMON_ROMAN_DICT = {
+  // --- Single Vowels (स्वर) ---
+  'a': 'अ',
+  'aa': 'आ',
+  'i': 'इ',
+  'ee': 'ई',
+  'ii': 'ई',
+  'u': 'उ',
+  'oo': 'ऊ',
+  'uu': 'ऊ',
+  'ri': 'ऋ',
+  'ru': 'ऋ',
+  'e': 'ए',
+  'ai': 'ऐ',
+  'o': 'ओ',
+  'au': 'औ',
+  'am': 'अं',
+  'ah': 'अः',
+
+  // --- Single Consonants (व्यञ्जन) ---
+  'ka': 'क',
+  'k': 'क्',
+  'kha': 'ख',
+  'kh': 'ख्',
+  'ga': 'ग',
+  'g': 'ग्',
+  'gha': 'घ',
+  'gh': 'घ्',
+  'nga': 'ङ',
+  'cha': 'च',
+  'ch': 'च्',
+  'chha': 'छ',
+  'chh': 'छ्',
+  'ja': 'ज',
+  'j': 'ज्',
+  'jha': 'झ',
+  'jh': 'झ्',
+  'nya': 'ञ',
+  'ta': 'त',
+  't': 'त्',
+  'tha': 'थ',
+  'th': 'थ्',
+  'da': 'द',
+  'd': 'द्',
+  'dha': 'ध',
+  'dh': 'ध्',
+  'na': 'न',
+  'n': 'न्',
+  'pa': 'प',
+  'p': 'प्',
+  'pha': 'फ',
+  'ph': 'फ्',
+  'ba': 'ब',
+  'b': 'ब्',
+  'bha': 'भ',
+  'bh': 'भ्',
+  'ma': 'म',
+  'm': 'म्',
+  'ya': 'य',
+  'y': 'य्',
+  'ra': 'र',
+  'r': 'र्',
+  'la': 'ल',
+  'l': 'ल्',
+  'va': 'व',
+  'v': 'व्',
+  'wa': 'व',
+  'w': 'व्',
+  'sha': 'श',
+  'sh': 'श्',
+  'shha': 'ष',
+  'shh': 'ष्',
+  'sa': 'स',
+  's': 'स्',
+  'ha': 'ह',
+  'h': 'ह्',
+  'ksha': 'क्ष',
+  'tra': 'त्र',
+  'gya': 'ज्ञ',
+
+  // --- Common Sanskrit Words ---
   'om': 'ॐ',
   'aum': 'ॐ',
   'shiva': 'शिव',
@@ -60,9 +140,11 @@ const COMMON_ROMAN_DICT = {
   'siva': 'शिव',
   'rama': 'राम',
   'ram': 'राम',
+  'raam': 'राम',
   'namaste': 'नमस्ते',
   'namaskar': 'नमस्कार',
   'shanti': 'शान्तिः',
+  'shantih': 'शान्तिः',
   'santi': 'शान्तिः',
   'guru': 'गुरु',
   'satyam': 'सत्यम्',
@@ -75,6 +157,7 @@ const COMMON_ROMAN_DICT = {
   'mantra': 'मन्त्र',
   'krishna': 'कृष्ण',
   'brahman': 'ब्रह्मन्',
+  'brahma': 'ब्रह्म',
   'atma': 'आत्मन्',
   'atman': 'आत्मन्',
   'moksha': 'मोक्ष',
@@ -82,7 +165,36 @@ const COMMON_ROMAN_DICT = {
   'vidya': 'विद्या',
   'ananda': 'आनन्द',
   'gyan': 'ज्ञान',
+  'gyaan': 'ज्ञान',
   'jnana': 'ज्ञान',
+  'shri': 'श्री',
+  'shree': 'श्री',
+  'sri': 'श्री',
+  'hari': 'हरि',
+  'deva': 'देव',
+  'devi': 'देवी',
+  'agni': 'अग्निः',
+  'surya': 'सूर्य',
+  'vayu': 'वायु',
+  'prana': 'प्राण',
+};
+
+// Common Devanagari ASR variant normalizations (ASR often produces Hindi colloquial forms)
+const COMMON_DEVANAGARI_NORM = {
+  'शांति': 'शान्तिः',
+  'शान्ति': 'शान्तिः',
+  'ओम': 'ॐ',
+  'ओम्': 'ॐ',
+  'सत्यम': 'सत्यम्',
+  'अहम': 'अहम्',
+  'रामा': 'राम',
+  'गुरू': 'गुरु',
+  'कृष्णा': 'कृष्ण',
+  'मोक्ष': 'मोक्ष',
+  'धर्म': 'धर्म',
+  'कर्म': 'कर्म',
+  'ज्ञान': 'ज्ञान',
+  'नमस्ते': 'नमस्ते',
 };
 
 // Multi-character consonant matches (longest first)
@@ -294,25 +406,36 @@ export function toDevanagari(input) {
 }
 
 /**
- * Ensure text has both Devanagari and IAST forms
+ * Normalize and ensure text has both Devanagari and IAST forms
  * @param {string} text - Input in either script
  * @returns {{ devanagari: string, iast: string }}
  */
 export function ensureBothScripts(text) {
   if (!text) return { devanagari: '', iast: '' };
 
-  const hasDevanagari = /[\u0900-\u097F]/.test(text);
+  // Remove common punctuation from speech transcripts
+  const cleaned = text.replace(/[.,?!:;\-_"'\(\)]/g, '').trim();
+  if (!cleaned) return { devanagari: '', iast: '' };
+
+  const hasDevanagari = /[\u0900-\u097F]/.test(cleaned);
 
   if (hasDevanagari) {
-    return {
-      devanagari: text.trim(),
-      iast: toIAST(text.trim()),
-    };
-  } else {
-    const dev = toDevanagari(text.trim());
+    let dev = cleaned;
+    // Check if whole word or normalized form exists in map
+    if (COMMON_DEVANAGARI_NORM[dev]) {
+      dev = COMMON_DEVANAGARI_NORM[dev];
+    }
     return {
       devanagari: dev,
-      iast: toIAST(dev) || text.trim().toLowerCase(),
+      iast: toIAST(dev),
+    };
+  } else {
+    const dev = toDevanagari(cleaned);
+    const normalizedDev = COMMON_DEVANAGARI_NORM[dev] || dev;
+    return {
+      devanagari: normalizedDev,
+      iast: toIAST(normalizedDev) || cleaned.toLowerCase(),
     };
   }
 }
+

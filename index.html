@@ -29,6 +29,13 @@
       <span class="header-badge">शिक्षा शास्त्र</span>
     </div>
     <div class="header-right">
+      <div class="lang-selector-group" title="Speech Recognition Language">
+        <label for="select-speech-lang" class="lang-label">Speech Model:</label>
+        <select id="select-speech-lang" class="lang-select">
+          <option value="hi-IN" selected>🇮🇳 Sanskrit / Hindi (hi-IN)</option>
+          <option value="en-IN">🇮🇳 Indian English (en-IN)</option>
+        </select>
+      </div>
       <button id="btn-help" class="header-btn" title="How to use">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <span>Guide</span>
@@ -90,6 +97,7 @@
           <div class="record-info">
             <p id="record-label" class="record-label">Tap Mic to Record Speech</p>
             <p id="record-timer" class="record-timer hidden">00:00</p>
+            <p id="live-speech-feedback" class="live-speech-feedback hidden">🎧 Hearing: <span id="live-speech-text">...</span></p>
           </div>
         </div>
 
@@ -100,7 +108,7 @@
               <input 
                 id="word-search-input" 
                 type="text" 
-                placeholder="Type any word (e.g. namaste, शिव, om, satyam)..." 
+                placeholder="Type any word, vowel, or consonant (e.g. क, अ, ka, ram, a, namaste)..." 
                 autocomplete="off"
                 spellcheck="false"
               />
@@ -113,7 +121,9 @@
 
         <!-- Quick Sanskrit Word Chips -->
         <div class="preset-words-section">
-          <span class="preset-label">Quick Sanskrit Presets:</span>
+          <div class="preset-group-header">
+            <span class="preset-label">Words:</span>
+          </div>
           <div class="preset-chips-container">
             <button class="preset-word-chip" data-word="ॐ">ॐ <small>oṁ</small></button>
             <button class="preset-word-chip" data-word="शिव">शिव <small>śiva</small></button>
@@ -125,6 +135,48 @@
             <button class="preset-word-chip" data-word="कर्म">कर्म <small>karma</small></button>
             <button class="preset-word-chip" data-word="योग">योग <small>yoga</small></button>
             <button class="preset-word-chip" data-word="ज्ञान">ज्ञान <small>jñāna</small></button>
+          </div>
+
+          <div class="preset-group-header" style="margin-top: 8px;">
+            <span class="preset-label">Single Vowels (स्वर):</span>
+          </div>
+          <div class="preset-chips-container">
+            <button class="preset-word-chip preset-phoneme-chip" data-word="अ">अ <small>a</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="आ">आ <small>ā</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="इ">इ <small>i</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ई">ई <small>ī</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="उ">उ <small>u</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ऊ">ऊ <small>ū</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ऋ">ऋ <small>ṛ</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ए">ए <small>e</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ऐ">ऐ <small>ai</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ओ">ओ <small>o</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="औ">औ <small>au</small></button>
+          </div>
+
+          <div class="preset-group-header" style="margin-top: 8px;">
+            <span class="preset-label">Single Consonants (व्यञ्जन):</span>
+          </div>
+          <div class="preset-chips-container">
+            <button class="preset-word-chip preset-phoneme-chip" data-word="क">क <small>ka</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ख">ख <small>kha</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ग">ग <small>ga</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="च">च <small>ca</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ट">ट <small>ṭa</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="त">त <small>ta</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="द">द <small>da</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="न">न <small>na</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="प">प <small>pa</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ब">ब <small>ba</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="म">म <small>ma</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="य">य <small>ya</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="र">र <small>ra</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ल">ल <small>la</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="व">व <small>va</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="श">श <small>śa</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ष">ष <small>ṣa</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="स">स <small>sa</small></button>
+            <button class="preset-word-chip preset-phoneme-chip" data-word="ह">ह <small>ha</small></button>
           </div>
         </div>
       </div>

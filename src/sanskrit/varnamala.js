@@ -625,6 +625,12 @@ export function decomposeWord(word) {
   let devanagariWord = word.trim();
   if (!devanagariWord) return [];
 
+  // Direct check: If input is a single phoneme directly from VARNAMALA
+  const exactMatch = VARNAMALA.find((p) => p.devanagari === devanagariWord);
+  if (exactMatch) {
+    return [exactMatch];
+  }
+
   const phonemes = [];
   const chars = [...devanagariWord];
   const aVowel = VARNAMALA.find((p) => p.devanagari === 'अ');

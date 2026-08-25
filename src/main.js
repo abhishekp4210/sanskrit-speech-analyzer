@@ -87,6 +87,16 @@ function dismissLoading() {
  * Configure component interactions and event mapping
  */
 function setupEvents() {
+  // Language Selector
+  const langSelect = document.getElementById('select-speech-lang');
+  if (langSelect) {
+    langSelect.addEventListener('change', (e) => {
+      const chosenLang = e.target.value;
+      speechRecognizer.setLanguage(chosenLang);
+      console.log('[Speech] Language set to:', chosenLang);
+    });
+  }
+
   // Record Button Click Handler
   recordButton.setOnClick(() => {
     if (audioCapture.isRecording) {
@@ -103,17 +113,32 @@ function setupEvents() {
     stopRecording(false);
   });
 
+  // Live Speech Feedback elements
+  const liveFeedbackEl = document.getElementById('live-speech-feedback');
+  const liveFeedbackText = document.getElementById('live-speech-text');
+
   // Speech Recognizer: Interim Results
   speechRecognizer.on('interim', (data) => {
     if (data.transcript) {
+      if (liveFeedbackEl && liveFeedbackText) {
+        liveFeedbackText.textContent = data.transcript;
+        liveFeedbackEl.classList.remove('hidden');
+      }
       resultsPanel.showInterim(data.transcript);
     }
   });
 
-  // Speech Recognizer: Final Result
+  // Speech Recognizer: Final Result (during continuous stream)
   speechRecognizer.on('result', (data) => {
-    if (data.isFinal && data.transcript && audioCapture.isRecording) {
-      handleFinalTranscript(data.transcript, data.confidence);
+    if (data.transcript) {
+      if (liveFeedbackEl && liveFeedbackText) {
+        liveFeedbackText.textContent = data.transcript;
+        liveFeedbackEl.classList.remove('hidden');
+      }
+      if (data.isFinal && audioCapture.isRecording) {
+        // Automatically analyze final word once uttered
+        handleFinalTranscript(data.transcript, data.confidence);
+      }
     }
   });
 
@@ -137,9 +162,10 @@ function setupEvents() {
     phoneticTable.showDetail(phoneme);
   });
 
-  // Phoneme interaction: Click a cell in Phonetic Table to highlight Vocal Tract region
+  // Phoneme interaction: Click a cell in Phonetic Table to trigger full analysis for that single vowel/consonant
   phoneticTable.setOnPhonemeSelect((phoneme) => {
     vocalTractDiagram.highlight(phoneme.sthana.id, phoneme.sthana.color);
+    analyzeSanskritWord(phoneme.devanagari, { source: 'varnamala' });
   });
 }
 
@@ -181,9 +207,18 @@ async function startRecording() {
   vocalTractDiagram._resetHighlights();
   audioAnalyzer.resetSession();
 
+  // Reset live speech feedback
+  const liveFeedbackEl = document.getElementById('live-speech-feedback');
+  const liveFeedbackText = document.getElementById('live-speech-text');
+  if (liveFeedbackEl && liveFeedbackText) {
+    liveFeedbackText.textContent = 'Listening...';
+    liveFeedbackEl.classList.remove('hidden');
+  }
+
   const success = await audioCapture.start();
   if (!success) {
     recordButton.setRecording(false);
+    if (liveFeedbackEl) liveFeedbackEl.classList.add('hidden');
     return;
   }
 
@@ -218,7 +253,7 @@ async function startRecording() {
  * Stop recording and finalize collected speech or acoustic data
  * @param {boolean} processResults - whether to analyze captured utterance
  */
-function stopRecording(processResults = true) {
+async function stopRecording(processResults = true) {
   if (recordingTimeoutId) {
     clearTimeout(recordingTimeoutId);
     recordingTimeoutId = null;
@@ -226,43 +261,52 @@ function stopRecording(processResults = true) {
 
   if (!audioCapture.isRecording) return;
 
-  // Harvest speech recognition transcript before stopping
-  const latestSpeech = speechRecognizer.stop();
-  audioCapture.stop();
-  stopAnalysisLoop();
-
-  // Stop Canvas loops
-  waveformRenderer.stop();
-  spectrogramRenderer.stop();
-
-  recordButton.setRecording(false);
-  document.getElementById('waveform-status')?.setAttribute('class', 'status-dot status-idle');
-
-  if (!processResults) return;
-
-  // Get aggregated acoustic features across the whole recorded speech window
-  const sessionFeatures = audioAnalyzer.getSessionSummary();
-  const transcript = (latestSpeech?.transcript || '').trim();
-
   recordButton.setProcessing();
   isProcessingAnalysis = true;
 
-  setTimeout(() => {
-    if (transcript) {
-      // 1. We have a clear speech recognition transcript (from Web Speech API)
-      handleFinalTranscript(transcript, latestSpeech.confidence || 0.88, sessionFeatures);
-    } else if (sessionFeatures.rms > 0.015 || sessionFeatures.isVoiced) {
-      // 2. Audio/Voice was captured, but Web Speech API was silent/offline
-      // Estimate Sanskrit word from actual acoustic formants and pitch
-      const estimatedWord = estimateSanskritWordFromAcoustics(sessionFeatures);
-      handleFinalTranscript(estimatedWord, 0.68, sessionFeatures);
-    } else {
-      // 3. Silence / No audio detected
-      isProcessingAnalysis = false;
-      recordButton.setRecording(false);
-      resultsPanel.showNotice("No clear speech was detected. Please speak closer to the microphone, or click any preset Sanskrit word below.");
-    }
-  }, 300);
+  // Stop Canvas loops and Audio Capture
+  audioCapture.stop();
+  stopAnalysisLoop();
+  waveformRenderer.stop();
+  spectrogramRenderer.stop();
+
+  document.getElementById('waveform-status')?.setAttribute('class', 'status-dot status-idle');
+
+  // Asynchronously harvest speech recognition transcript, allowing recognizer buffer to flush
+  const latestSpeech = await speechRecognizer.stop();
+
+  // Hide live speech feedback banner
+  const liveFeedbackEl = document.getElementById('live-speech-feedback');
+  if (liveFeedbackEl) liveFeedbackEl.classList.add('hidden');
+
+  recordButton.setRecording(false);
+
+  if (!processResults) {
+    isProcessingAnalysis = false;
+    return;
+  }
+
+  // Get aggregated acoustic features across the whole recorded speech window
+  const sessionFeatures = audioAnalyzer.getSessionSummary();
+  const rawTranscript = (latestSpeech?.transcript || '').trim();
+
+  if (rawTranscript) {
+    // 1. We have a clear speech recognition transcript from Web Speech API
+    const scripts = ensureBothScripts(rawTranscript);
+    handleFinalTranscript(scripts.devanagari || rawTranscript, latestSpeech.confidence || 0.9, sessionFeatures);
+  } else if (sessionFeatures.rms > 0.015 || sessionFeatures.isVoiced) {
+    // 2. Microphone captured voice, but Web Speech API did not return text
+    isProcessingAnalysis = false;
+    resultsPanel.showNotice(
+      "Voice was detected, but the word was not recognized clearly. Please speak closer to the mic, or click any preset Sanskrit word below."
+    );
+  } else {
+    // 3. Complete Silence / No audio detected
+    isProcessingAnalysis = false;
+    resultsPanel.showNotice(
+      "No clear speech was detected. Please speak closer to the microphone, or click any preset Sanskrit word below."
+    );
+  }
 }
 
 // ─── Real-time Acoustic Analysis Loop ─────────────────────────────
@@ -331,8 +375,12 @@ function handleFinalTranscript(transcript, confidence, features = null) {
 
   const acousticData = features || lastAcousticFeatures || audioAnalyzer.getSessionSummary();
 
+  // Normalize input word into canonical Devanagari and IAST
+  const scripts = ensureBothScripts(transcript);
+  const canonicalWord = scripts.devanagari || transcript;
+
   // Perform Shiksha Shastra phonetic mapping & analysis
-  const analysis = phoneticAnalyzer.analyzeWord(transcript, acousticData);
+  const analysis = phoneticAnalyzer.analyzeWord(canonicalWord, acousticData);
 
   // Update UI components with results
   resultsPanel.showResults(analysis);
@@ -345,49 +393,6 @@ function handleFinalTranscript(transcript, confidence, features = null) {
 
   // Speak word and identify phoneme types
   speakWordAnalysis(analysis.word, analysis.phonemes);
-}
-
-/**
- * Intelligently estimate the Sanskrit word based on recorded formants, pitch, and energy
- */
-function estimateSanskritWordFromAcoustics(features) {
-  if (!features) return 'ॐ';
-
-  const f1 = features.formants?.[0]?.frequency || 500;
-  const f2 = features.formants?.[1]?.frequency || 1500;
-  const zcr = features.zeroCrossingRate || 0.05;
-  const pitch = features.pitch || 140;
-
-  // Sibilant/High ZCR sounds: 'शिव', 'शान्तिः', 'सत्यम्'
-  if (zcr > 0.22) {
-    if (f2 > 1900) return 'शिव';
-    if (pitch > 200) return 'शान्तिः';
-    return 'सत्यम्';
-  }
-
-  // Low back rounded vowels (F2 < 1100 Hz): 'ॐ', 'गुरु', 'योग'
-  if (f2 < 1100) {
-    if (pitch < 130) return 'ॐ';
-    if (f1 < 400) return 'गुरु';
-    return 'योग';
-  }
-
-  // High front unrounded vowels (F2 > 1800 Hz): 'विद्या', 'शिव', 'नमस्ते'
-  if (f2 > 1800) {
-    if (f1 > 500) return 'नमस्ते';
-    return 'विद्या';
-  }
-
-  // Open central vowels (F1 > 550 Hz, F2: 1200-1600 Hz): 'राम', 'कर्म', 'ज्ञान', 'अहम्'
-  if (f1 > 550) {
-    if (pitch > 160) return 'राम';
-    if (zcr > 0.1) return 'ज्ञान';
-    return 'कर्म';
-  }
-
-  // Default balanced Sanskrit words
-  const balanced = ['ॐ', 'राम', 'नमस्ते', 'शान्तिः', 'गुरु', 'सत्यम्'];
-  return balanced[Math.floor(Math.random() * balanced.length)];
 }
 
 /**

@@ -180,21 +180,44 @@ export class SpeechRecognizer {
   }
 
   /**
-   * Stop listening and return the best collected transcript
+   * Stop listening and asynchronously return the best collected transcript.
+   * Gives the Web Speech API recognizer time to flush any pending speech buffer.
+   * @returns {Promise<{ transcript: string, confidence: number, alternatives: Array }>}
    */
-  stop() {
+  async stop() {
     this.shouldKeepListening = false;
     this.isListening = false;
 
-    if (this.recognition) {
+    if (!this.recognition) {
+      return this.getLatestTranscript();
+    }
+
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        resolve(this.getLatestTranscript());
+      };
+
+      // Set a short safety timeout to capture flushed audio
+      const timeoutId = setTimeout(finish, 650);
+
+      const handleEnd = () => {
+        clearTimeout(timeoutId);
+        setTimeout(finish, 80);
+      };
+
+      this.recognition.addEventListener('end', handleEnd, { once: true });
+
       try {
         this.recognition.stop();
       } catch (err) {
-        // Ignore
+        clearTimeout(timeoutId);
+        finish();
       }
-    }
-
-    return this.getLatestTranscript();
+    });
   }
 
   /**
@@ -216,10 +239,13 @@ export class SpeechRecognizer {
    * Get the most recent recognized transcript
    */
   getLatestTranscript() {
-    const transcript = (this.finalTranscript || this.interimTranscript || this.lastKnownTranscript || '').trim();
+    const raw = (this.finalTranscript || this.interimTranscript || this.lastKnownTranscript || '').trim();
+    // Clean trailing punctuation
+    const cleanTranscript = raw.replace(/[.,?!:;\-_]/g, '').trim();
+
     return {
-      transcript,
-      confidence: this.latestConfidence || 0.8,
+      transcript: cleanTranscript,
+      confidence: this.latestConfidence || 0.85,
       alternatives: this.latestAlternatives,
     };
   }
