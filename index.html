@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sanskrit Speech Analyzer — Real-time Phonetic Analysis</title>
+  <meta name="description" content="Analyze spoken Sanskrit words in real-time. Detect phonemes, visualize waveforms, and explore articulatory points of origin based on classical Shiksha Shastra." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕉</text></svg>" />
+  <link rel="stylesheet" href="/src/styles/index.css" />
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">Initializing Sanskrit Audio Engine...</p>
+  </div>
+
+  <!-- Header -->
+  <header id="app-header" class="app-header">
+    <div class="header-left">
+      <span class="header-icon">🕉</span>
+      <div>
+        <h1 class="header-title">Sanskrit Speech Analyzer</h1>
+        <p class="header-tagline">Real-time Shiksha Shastra Articulatory Phonetics</p>
+      </div>
+      <span class="header-badge">शिक्षा शास्त्र</span>
+    </div>
+    <div class="header-right">
+      <button id="btn-help" class="header-btn" title="How to use">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Guide</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="app-main" class="app-main">
+    <!-- Left Column: Visualizations + Controls -->
+    <section class="col-left">
+      <!-- Waveform -->
+      <div id="waveform-card" class="card card-viz">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h2l3-9 3 18 3-12 3 6 3-3h3"/></svg>
+            Waveform
+          </h2>
+          <span id="waveform-status" class="status-dot status-idle"></span>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="canvas-waveform"></canvas>
+        </div>
+      </div>
+
+      <!-- Spectrogram -->
+      <div id="spectrogram-card" class="card card-viz">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+            Spectrogram
+          </h2>
+          <div class="spectrogram-legend">
+            <span class="legend-low">Low</span>
+            <div class="legend-gradient"></div>
+            <span class="legend-high">High</span>
+          </div>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="canvas-spectrogram"></canvas>
+        </div>
+      </div>
+
+      <!-- Record Area & Controls -->
+      <div id="record-card" class="card card-controls">
+        <div class="record-area">
+          <button id="btn-record" class="record-btn" title="Click to start recording">
+            <div class="record-btn-ring"></div>
+            <div class="record-btn-inner">
+              <svg id="mic-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+              <svg id="stop-icon" class="hidden" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
+            </div>
+          </button>
+          <div class="record-info">
+            <p id="record-label" class="record-label">Tap Mic to Record Speech</p>
+            <p id="record-timer" class="record-timer hidden">00:00</p>
+          </div>
+        </div>
+
+        <!-- Manual Word Search / Test Input -->
+        <div class="manual-input-section">
+          <form id="word-search-form" class="word-search-form">
+            <div class="input-group">
+              <input 
+                id="word-search-input" 
+                type="text" 
+                placeholder="Type any word (e.g. namaste, शिव, om, satyam)..." 
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="submit" class="btn-analyze" title="Analyze typed word">
+                Analyze
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Quick Sanskrit Word Chips -->
+        <div class="preset-words-section">
+          <span class="preset-label">Quick Sanskrit Presets:</span>
+          <div class="preset-chips-container">
+            <button class="preset-word-chip" data-word="ॐ">ॐ <small>oṁ</small></button>
+            <button class="preset-word-chip" data-word="शिव">शिव <small>śiva</small></button>
+            <button class="preset-word-chip" data-word="राम">राम <small>rāma</small></button>
+            <button class="preset-word-chip" data-word="नमस्ते">नमस्ते <small>namaste</small></button>
+            <button class="preset-word-chip" data-word="शान्तिः">शान्तिः <small>śāntiḥ</small></button>
+            <button class="preset-word-chip" data-word="गुरु">गुरु <small>guru</small></button>
+            <button class="preset-word-chip" data-word="सत्यम्">सत्यम् <small>satyam</small></button>
+            <button class="preset-word-chip" data-word="कर्म">कर्म <small>karma</small></button>
+            <button class="preset-word-chip" data-word="योग">योग <small>yoga</small></button>
+            <button class="preset-word-chip" data-word="ज्ञान">ज्ञान <small>jñāna</small></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Varnamala Table -->
+      <div id="varnamala-card" class="card card-table">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Varṇamālā
+          </h2>
+          <span class="card-subtitle">Interactive Phoneme Grid</span>
+        </div>
+        <div id="varnamala-container" class="varnamala-container"></div>
+        <div id="phoneme-detail" class="phoneme-detail hidden"></div>
+      </div>
+    </section>
+
+    <!-- Right Column: Results -->
+    <section class="col-right">
+      <!-- Notice Message Box -->
+      <div id="results-notice" class="notice-banner hidden"></div>
+
+      <!-- Welcome / Instructions (shown initially) -->
+      <div id="welcome-card" class="card card-welcome">
+        <div class="welcome-icon">🎤</div>
+        <h2 class="welcome-title">Welcome to Sanskrit Speech Analyzer</h2>
+        <p class="welcome-text">
+          Speak a Sanskrit word into your microphone or choose from the quick presets. The app will detect the word, 
+          visualize its acoustic properties, and analyze the articulatory point of origin 
+          based on classical <strong>Shiksha Shastra (शिक्षा शास्त्र)</strong>.
+        </p>
+        <div class="welcome-steps">
+          <div class="step"><span class="step-num">1</span><span>Click the microphone or choose a preset word</span></div>
+          <div class="step"><span class="step-num">2</span><span>Speak clearly into your microphone</span></div>
+          <div class="step"><span class="step-num">3</span><span>Explore phonemes, vocal tract, and acoustic analysis</span></div>
+        </div>
+      </div>
+
+      <!-- Detected Word -->
+      <div id="word-card" class="card card-result hidden">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Detected Word & Phonemes
+          </h2>
+        </div>
+        <div id="detected-word-display" class="detected-word-display">
+          <span id="detected-devanagari" class="detected-devanagari"></span>
+          <span id="detected-iast" class="detected-iast"></span>
+        </div>
+        <div id="word-phonemes" class="word-phonemes"></div>
+      </div>
+
+      <!-- Vocal Tract Diagram -->
+      <div id="vocal-tract-card" class="card card-result hidden">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/></svg>
+            Sthāna (Point of Origin)
+          </h2>
+        </div>
+        <div id="vocal-tract-container" class="vocal-tract-container"></div>
+      </div>
+
+      <!-- Articulatory Analysis -->
+      <div id="articulation-card" class="card card-result hidden">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            Articulatory Classification
+          </h2>
+        </div>
+        <div id="articulation-content" class="articulation-content"></div>
+      </div>
+
+      <!-- Confidence Scores -->
+      <div id="confidence-card" class="card card-result hidden">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Confidence Scores
+          </h2>
+        </div>
+        <div id="confidence-content" class="confidence-content"></div>
+      </div>
+
+      <!-- Additional Notes -->
+      <div id="notes-card" class="card card-result hidden">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Acoustic Observations
+          </h2>
+        </div>
+        <div id="notes-content" class="notes-content"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Help Modal -->
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h2>Sanskrit Speech Analyzer Guide</h2>
+        <button id="btn-close-help" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="help-section">
+          <h3>🎤 Speech & Audio Recording</h3>
+          <p>Click the microphone button to start recording. Speak any Sanskrit word clearly. Click again to finalize, or select any preset word.</p>
+        </div>
+        <div class="help-section">
+          <h3>📊 Real-time Visualizations</h3>
+          <p>The waveform shows time-domain energy fluctuations. The spectrogram calculates frequency intensity (0-8 kHz) in real-time.</p>
+        </div>
+        <div class="help-section">
+          <h3>🔤 Phonetic & Matra Decomposition</h3>
+          <p>Words are decomposed into their true consonant and vowel components (e.g. शिव → श + इ + व + अ) according to classical Shiksha Shastra.</p>
+        </div>
+        <div class="help-section">
+          <h3>👅 Articulatory Sthāna (Points of Origin)</h3>
+          <p>Each phoneme is classified into its traditional place of articulation: Kaṇṭhya (Throat), Tālavya (Palate), Mūrdhanya (Roof), Dantya (Teeth), Oṣṭhya (Lips), and Nāsikya (Nose).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
